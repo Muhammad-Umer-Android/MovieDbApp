@@ -1,6 +1,5 @@
 package com.application.themoviedb.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -21,12 +20,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.application.themoviedb.presentation.MovieListViewModel
 import com.application.themoviedb.R
@@ -60,18 +55,23 @@ fun HomeScreen(navController: NavHostController) {
     val bottomNavController = rememberNavController()
     val saveableStateHolder = rememberSaveableStateHolder()
 
+    val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val isPopularScreen = currentRoute == Screen.PopularMovieList.rout
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
                 bottomNavController = bottomNavController,
-                onEvent = movieListViewModel::onEvent
+                onEvent = movieListViewModel::onEvent,
+                currentRoute = currentRoute
             )
         },
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = if (movieListState.isCurrentPopularScreen)
+                        text = if (isPopularScreen)
                             stringResource(R.string.popular_movies)
                         else
                             stringResource(R.string.upcoming_movies),
@@ -122,34 +122,42 @@ fun HomeScreen(navController: NavHostController) {
 
 @Composable
 fun BottomNavigationBar(
-    bottomNavController: NavHostController, onEvent: (MovieListUiEvent) -> Unit
+    bottomNavController: NavHostController,
+    onEvent: (MovieListUiEvent) -> Unit,
+    currentRoute: String?
 ) {
 
     val items = listOf(
         BottomItem(
             title = stringResource(R.string.popular),
-            icon = Icons.Rounded.Movie
-        ), BottomItem(
+            icon = Icons.Rounded.Movie,
+            route = Screen.PopularMovieList.rout
+        ),
+        BottomItem(
             title = stringResource(R.string.upcoming),
-            icon = Icons.Rounded.Upcoming
+            icon = Icons.Rounded.Upcoming,
+            route = Screen.UpcomingMovieList.rout
         )
     )
 
-    val selected = rememberSaveable {
-        mutableIntStateOf(0)
-    }
+
+
+//    val selected = rememberSaveable {
+//        mutableIntStateOf(0)
+//    }
 
     NavigationBar {
         Row(
             modifier = Modifier.background(MaterialTheme.colorScheme.inverseOnSurface)
         ) {
-            items.forEachIndexed { index, bottomItem ->
+            // todo manullly handle the state of the selected item
+            /*items.forEachIndexed { index, bottomItem ->
                 NavigationBarItem(
                     selected = selected.intValue == index,
                     onClick = {
                         selected.intValue = index
                         when (selected.intValue) {
-                            /*0 -> {
+                            *//*0 -> {
                                 onEvent(MovieListUiEvent.Navigate)
 //                            bottomNavController.popBackStack()
                                 bottomNavController.navigate(Screen.PopularMovieList.rout)
@@ -159,7 +167,7 @@ fun BottomNavigationBar(
                                 onEvent(MovieListUiEvent.Navigate)
 //                            bottomNavController.popBackStack()
                                 bottomNavController.navigate(Screen.UpcomingMovieList.rout)
-                            }*/
+                            }*//*
 
                             0 -> {
                                 onEvent(MovieListUiEvent.Navigate)
@@ -196,12 +204,46 @@ fun BottomNavigationBar(
                             text = bottomItem.title, color = MaterialTheme.colorScheme.onBackground
                         )
                     })
+            }*/
+
+            // Using the current route to determine which item is selected
+
+            items.forEach { bottomItem ->
+                val selected = currentRoute == bottomItem.route
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = {
+                        onEvent(MovieListUiEvent.Navigate)
+                        bottomNavController.navigate(bottomItem.route) {
+                            launchSingleTop = true
+                            restoreState = true
+                            popUpTo(bottomNavController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                        }
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = bottomItem.icon,
+                            contentDescription = bottomItem.title,
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = bottomItem.title, color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                )
             }
+
+
+
         }
     }
 
 }
 
 data class BottomItem(
-    val title: String, val icon: ImageVector
+    val title: String, val icon: ImageVector, val route: String
 )
